@@ -6,27 +6,15 @@ import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol';
 import '@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol';
 import '@openzeppelin/contracts/security/Pausable.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
+// import './PWNErrors.sol';
 
 contract PowerMint is ERC721, ERC721Enumerable, ERC721URIStorage, Pausable, Ownable {
     constructor(
-        // uint256 _totalLimit,
-        // uint256 _whitelistLimit,
-        // uint256 _platformLimit
+     
     ) ERC721(' PowerMInt', 'PWM') {
         baseURI = 'https://gateway.pinata.cloud/ipfs/';
-        mintingStatus = true;
         cOwner = msg.sender;
-        // if (_whitelistLimit + _platformLimit > totalLimit) {
-        //     totalLimit = _totalLimit;
-        //     whitelistLimitLeft = _whitelistLimit;
-        //     totalwhitelistLimit = _whitelistLimit;
-        //     platformLimitLeft = _platformLimit;
-        //     totalPlatformLimit = _platformLimit;
-        //     publicLimitLeft = totalLimit - (whitelistLimitLeft + platformLimitLeft);
-        //     totalPublicLimit = totalLimit - (whitelistLimitLeft + platformLimitLeft);
-        // } else {
-        //     revert NotEqualToTotalLimit();
-        // }
+ 
     }
 
     //Struct
@@ -51,8 +39,19 @@ contract PowerMint is ERC721, ERC721Enumerable, ERC721URIStorage, Pausable, Owna
         uint totalLimit;
         uint whitelistLimit;
         uint PlatformLimit;
-        uint publicLimit;
-        
+        uint publicLimit; 
+        uint userLimit;
+        bool publicSale;  
+        bool mintingStatus;
+        bool adminIdExist;
+    }
+
+      struct mintinglimitscount{
+        uint totalLimitCount;
+        uint whitelistLimitCount;
+        uint PlatformLimitCount;
+        uint publicLimitCount;
+        uint userLimitCount;   
 
     }
 
@@ -67,24 +66,25 @@ contract PowerMint is ERC721, ERC721Enumerable, ERC721URIStorage, Pausable, Owna
     uint256 public adminPrice = 0.01 ether;
     string public baseURI;
     // string public publicSales = 'Unactive';
-    bool public mintingStatus;
-    uint256 public totalLimit;
+    // bool public mintingStatus;
+    // uint256 public totalLimit;
     // uint256 public whitelistLimitLeft;
     // uint256 public platformLimitLeft;
     // uint256 public publicLimitLeft;
-    uint256 public userLimit = 5;
-    uint256 private totalLimitCount;
-    uint256 public totalwhitelistLimit;
-    uint256 public totalPublicLimit;
-    uint256 public totalPlatformLimit;
+    // uint256 public userLimit = 5;
+    // uint256 private totalLimitCount;
+    // uint256 public totalwhitelistLimit;
+    // uint256 public totalPublicLimit;
+    // uint256 public totalPlatformLimit;
     // bool private mintingBool;
-    bool private publicSaleBool;
+    // bool private publicSaleBool;
 
     // Mappings
     mapping(address => admininfo) public adminDetails;
     mapping(uint => adminsrecord) public adminsRecord;
     mapping(address => bool) public isAdmin;
     mapping(uint => mintinglimits) public mintingLimits;
+    mapping(uint => mintinglimitscount) public LimitsCount;
     mapping(uint256 => nftinfo) public nftData;
     mapping(address => bool) public isWhitelistedUser;
     mapping(uint256 => mapping(address => bool)) public checkWhitelistedUser;
@@ -116,7 +116,7 @@ contract PowerMint is ERC721, ERC721Enumerable, ERC721URIStorage, Pausable, Owna
     error NotWhitelistedUser(address _address);
     error AdminNotFound(address _address);
     error TotalLimitReached(uint256 limit);
-    error MintingLimitReached(uint256 limit);
+    error MintingLimitReached();
     error UserLimitReached(address addrs, uint256 limit);
     error PleaseCheckValue(uint256 limit);
     error AlreadyActive(string status);
@@ -130,7 +130,7 @@ contract PowerMint is ERC721, ERC721Enumerable, ERC721URIStorage, Pausable, Owna
         _;
     }
 
-    function becomeAdmin(address _address,string memory _name, uint _setAdminId)public payable{
+    function becomeAdmin(address _address,string memory _name, uint _setAdminId,uint256 _totallimit,uint256 _whitelistlimit, uint256 _platformlimit,uint256 _userLimit)public payable{
         if(isAdmin[_address] == true || adminIdCheck[_setAdminId] == true) revert 
         AdminOrIdAlreadyExist(_address,_setAdminId);
         // uint amoumt = (msg.value / price) * 1 wei;
@@ -138,49 +138,72 @@ contract PowerMint is ERC721, ERC721Enumerable, ERC721URIStorage, Pausable, Owna
         (bool success,) = payable(cOwner).call{value: msg.value}("");
         if(success == false) revert PriceError();
         
-   
-        // for(uint i = 0;i < myy.length;i++){
-        //      myy.push(_address);
-
-        // }
         adminsCount++;
-       
         adminDetails[_address] = admininfo(_name,_setAdminId);
         isAdmin[_address] = true;
         adminIdCheck[_setAdminId] = true;
         adminsRecord[adminsCount] = adminsrecord(_address,_name);
+        mintingLimits[_setAdminId].mintingStatus = true;
+        mintingLimits[_setAdminId].adminIdExist = true;
+         if (_whitelistlimit + _platformlimit <= _totallimit) {
+            mintingLimits[_setAdminId].totalLimit = _totallimit;
+            mintingLimits[_setAdminId].whitelistLimit = _whitelistlimit;
+            mintingLimits[_setAdminId].PlatformLimit = _platformlimit;
+            mintingLimits[_setAdminId].publicLimit = _totallimit - (_whitelistlimit + _platformlimit);
+            mintingLimits[_setAdminId].userLimit = _userLimit;
+        } else {
+             revert NotEqualToTotalLimit();
+         }
 
         }else{
             revert PriceError();
         } 
     }
 
-    function unSubAdmin(uint _adminId)public onlyAdmins{
-        if(adminIdCheck[_adminId] == false) revert 
-        IdNotFound(_adminId);
-        delete adminDetails[msg.sender];
-        isAdmin[msg.sender] = false;
-        adminIdCheck[_adminId] = false;
-        delete WhitelistedUser[_adminId];
-        delete checkWhitelistedUser[_adminId][msg.sender];
-        mintingLimits[_adminId].totalLimit = 0 ;
-        mintingLimits[_adminId].whitelistLimit = 0 ;
-        mintingLimits[_adminId].PlatformLimit = 0 ;
-        mintingLimits[_adminId].publicLimit = 0 ;
-
-    }
-
-    function setMintingLimits(uint256 _adminId,uint256 _totallimit,uint256 _whitelistlimit, uint256 _platformlimit)public onlyAdmins{
+    function updateLimits(uint _adminId,uint256 _totallimit,uint256 _whitelistlimit, uint256 _platformlimit)public payable{
+        if(isAdmin[msg.sender] == false) 
+        revert AdminNotFound(msg.sender);
+        if(mintingLimits[_adminId].adminIdExist == false)
+        revert IdNotFound(_adminId);
         if (_whitelistlimit + _platformlimit <= _totallimit) {
             mintingLimits[_adminId].totalLimit = _totallimit;
             mintingLimits[_adminId].whitelistLimit = _whitelistlimit;
             mintingLimits[_adminId].PlatformLimit = _platformlimit;
             mintingLimits[_adminId].publicLimit = _totallimit - (_whitelistlimit + _platformlimit);
+          
         } else {
              revert NotEqualToTotalLimit();
          }
-            
+
+
     }
+
+    // function unSubAdmin(uint _adminId)public onlyAdmins{
+    //     if(adminIdCheck[_adminId] == false) revert 
+    //     IdNotFound(_adminId);
+    //     delete adminDetails[msg.sender];
+    //     isAdmin[msg.sender] = false;
+    //     adminIdCheck[_adminId] = false;
+    //     delete WhitelistedUser[_adminId];
+    //     delete checkWhitelistedUser[_adminId][msg.sender];
+    //     mintingLimits[_adminId].totalLimit = 0 ;
+    //     mintingLimits[_adminId].whitelistLimit = 0 ;
+    //     mintingLimits[_adminId].PlatformLimit = 0 ;
+    //     mintingLimits[_adminId].publicLimit = 0 ;
+
+    // }
+
+    // function setMintingLimits(uint256 _adminId,uint256 _totallimit,uint256 _whitelistlimit, uint256 _platformlimit)public onlyAdmins{
+    //     if (_whitelistlimit + _platformlimit <= _totallimit) {
+    //         mintingLimits[_adminId].totalLimit = _totallimit;
+    //         mintingLimits[_adminId].whitelistLimit = _whitelistlimit;
+    //         mintingLimits[_adminId].PlatformLimit = _platformlimit;
+    //         mintingLimits[_adminId].publicLimit = _totallimit - (_whitelistlimit + _platformlimit);
+    //     } else {
+    //          revert NotEqualToTotalLimit();
+    //      }
+            
+    // }
 
     function setAdminPrice(uint _price)public onlyOwner{
          adminPrice =  _price;
@@ -212,26 +235,29 @@ contract PowerMint is ERC721, ERC721Enumerable, ERC721URIStorage, Pausable, Owna
         uint _adminId,
         string memory _metadataHash
     ) public {
-        if (mintingStatus == false) 
+        if (mintingLimits[_adminId].adminIdExist == false)
+        revert IdNotFound(_adminId);
+        if (mintingLimits[_adminId].mintingStatus == false) 
         revert MintingPaused();
-        if (publicSaleBool == true) 
+        if (mintingLimits[_adminId].publicSale == true) 
         revert PublicSaleActive();
         if (isWhitelistedUser[msg.sender] == false) 
         revert NotWhitelistedUser(msg.sender);
-        if (totalLimitCount >= mintingLimits[_adminId].totalLimit) 
+        if (LimitsCount[_adminId].totalLimitCount >= mintingLimits[_adminId].totalLimit) 
         revert TotalLimitReached(mintingLimits[_adminId].totalLimit);
         if (mintingLimits[_adminId].whitelistLimit <= 0) 
-        revert MintingLimitReached(totalwhitelistLimit);
-        if (userMintedStatus[msg.sender] >= userLimit)
-        revert UserLimitReached(msg.sender, userLimit);
+        revert MintingLimitReached();
+        if (LimitsCount[_adminId].userLimitCount >= mintingLimits[_adminId].userLimit)
+        revert UserLimitReached(msg.sender, mintingLimits[_adminId].userLimit);
         if(checkWhitelistedUser[_adminId][msg.sender] == false)
         revert NotWhitelistedUser(msg.sender);
 
         _safeMint(to, tokenId);
         nftData[tokenId] = nftinfo(_name, _metadataHash);
-        totalLimitCount++;
+        LimitsCount[_adminId].totalLimitCount;
         mintingLimits[_adminId].whitelistLimit--;
-        userMintedStatus[msg.sender]++;
+        LimitsCount[_adminId].userLimitCount++;
+        // userMintedStatus[msg.sender]++;
         emit WhitlistUserMinited(msg.sender,to,tokenId,_name);
     }
 
@@ -253,22 +279,24 @@ contract PowerMint is ERC721, ERC721Enumerable, ERC721URIStorage, Pausable, Owna
         uint _adminId,
         string memory _metadataHash
     ) public {
-        if (mintingStatus == false) 
+        if (mintingLimits[_adminId].adminIdExist == false)
+         revert IdNotFound(_adminId);
+        if (mintingLimits[_adminId].mintingStatus == false)
         revert MintingPaused();
-        if (publicSaleBool == false)
+        if (mintingLimits[_adminId].publicSale == false)
          revert PublicSaleUnactive();
-        if (totalLimitCount >= mintingLimits[_adminId].totalLimit)
+        if (LimitsCount[_adminId].totalLimitCount  >= mintingLimits[_adminId].totalLimit)
          revert TotalLimitReached(mintingLimits[_adminId].totalLimit);
-        if ( mintingLimits[_adminId].publicLimit <= 0)
-         revert MintingLimitReached(totalPublicLimit);
-        if (userMintedStatus[msg.sender] >= userLimit)
-        revert UserLimitReached(msg.sender, userLimit);
+        if ( mintingLimits[_adminId].publicLimit <= 0 )
+         revert MintingLimitReached();
+        if (LimitsCount[_adminId].userLimitCount >= mintingLimits[_adminId].userLimit)
+        revert UserLimitReached(msg.sender, mintingLimits[_adminId].userLimit);
 
         _safeMint(to, tokenId);
         nftData[tokenId] = nftinfo(_name, _metadataHash);
-        totalLimitCount++;
+        LimitsCount[_adminId].totalLimitCount++;
         mintingLimits[_adminId].publicLimit--;
-        userMintedStatus[msg.sender]++;
+        LimitsCount[_adminId].userLimitCount++;
         emit PulblicUserMinited(msg.sender,to,tokenId,_name);
     }
 
@@ -290,17 +318,19 @@ contract PowerMint is ERC721, ERC721Enumerable, ERC721URIStorage, Pausable, Owna
         uint _adminId,
         string memory _metadataHash
     ) public {
-        if (isWhitelistedAdmin[msg.sender] == false)
+        if (isAdmin[msg.sender] == false)
          revert AdminNotFound(msg.sender);
-        if (totalLimitCount >= mintingLimits[_adminId].totalLimit)
+        if (adminDetails[msg.sender].adminId != _adminId)
+         revert IdNotFound(_adminId);
+        if (LimitsCount[_adminId].totalLimitCount  == mintingLimits[_adminId].totalLimit)
          revert TotalLimitReached(mintingLimits[_adminId].totalLimit);
         if (mintingLimits[_adminId].PlatformLimit <= 0)
-         revert MintingLimitReached(totalPlatformLimit);
+         revert MintingLimitReached();
   
 
         _safeMint(to, tokenId);
         nftData[tokenId] = nftinfo(_name, _metadataHash);
-        totalLimitCount++;
+        LimitsCount[_adminId].totalLimitCount++;
         mintingLimits[_adminId].PlatformLimit--;
         emit AdminMinited(msg.sender,to,tokenId,_name);
     }
@@ -325,6 +355,35 @@ contract PowerMint is ERC721, ERC721Enumerable, ERC721URIStorage, Pausable, Owna
         emit UpdatedBaseUrl(msg.sender);
     }
 
+
+    function publicSaleEnbDis(uint _adminId)public {
+        if(isAdmin[msg.sender] == false)
+        revert AdminNotFound(msg.sender);
+        if(adminDetails[msg.sender].adminId != _adminId)
+        revert IdNotFound(_adminId);
+        if(mintingLimits[_adminId].publicSale == false){
+          mintingLimits[_adminId].publicLimit = mintingLimits[_adminId].publicLimit + 
+          mintingLimits[_adminId].whitelistLimit;
+          mintingLimits[_adminId].whitelistLimit = mintingLimits[_adminId].whitelistLimit * 0;
+          mintingLimits[_adminId].publicSale = true;
+
+        }else{
+            mintingLimits[_adminId].publicSale = false;
+        }
+    }
+
+        function mintingEnbDis(uint _adminId)public {
+        if(isAdmin[msg.sender] == false)
+        revert AdminNotFound(msg.sender);
+        if(adminDetails[msg.sender].adminId != _adminId)
+        revert IdNotFound(_adminId);
+        if(mintingLimits[_adminId].mintingStatus == false){
+          mintingLimits[_adminId].mintingStatus = true;
+        }else{
+            mintingLimits[_adminId].mintingStatus = false;
+        }
+    }
+
     /**
      * @dev updateMintingLimit is used to update all user limits.
      * Requirement:
@@ -333,13 +392,15 @@ contract PowerMint is ERC721, ERC721Enumerable, ERC721URIStorage, Pausable, Owna
      * Emits a {MintingLimitUpdated} event.
     */
 
-    function updateMintingLimit(uint256 limit) public {
-        if (isWhitelistedAdmin[msg.sender] == false) 
-        revert AdminNotFound(msg.sender);
-        if (limit <= 0) revert PleaseCheckValue(limit);
-        userLimit = limit;
-        emit MintingLimitUpdated(msg.sender,limit);
-    }
+
+
+    // function updateMintingLimit(uint256 limit) public {
+    //     if (isWhitelistedAdmin[msg.sender] == false) 
+    //     revert AdminNotFound(msg.sender);
+    //     if (limit <= 0) revert PleaseCheckValue(limit);
+    //     userLimit = limit;
+    //     emit MintingLimitUpdated(msg.sender,limit);
+    // }
 
     /**
      * @dev whitelistUser is used to whitelist the users.
@@ -354,8 +415,8 @@ contract PowerMint is ERC721, ERC721Enumerable, ERC721URIStorage, Pausable, Owna
          revert IdNotFound(_adminId);
         if(checkWhitelistedUser[_adminId][_address] == true)
         revert WUserAlreadyExist(_address,_adminId);
-         address[] storage users = WhitelistedUser[_adminId];
-         users.push( _address);
+        address[] storage users = WhitelistedUser[_adminId];
+        users.push( _address);
         WhitelistedUser[_adminId] = users;
         checkWhitelistedUser[_adminId][_address] = true;
         isWhitelistedUser[_address] = true;
@@ -434,16 +495,16 @@ contract PowerMint is ERC721, ERC721Enumerable, ERC721URIStorage, Pausable, Owna
      * - This function can only called by owner of teh contract
     */
 
-    function mintingPusAct() public onlyOwner {
-        if(mintingStatus == false){
-        // mintingBool = true;
-        mintingStatus = true;
-        }else{
-        // mintingBool = false;
-        mintingStatus = false;
-        }
+    // function mintingPusAct() public onlyOwner {
+    //     if(mintingStatus == false){
+    //     // mintingBool = true;
+    //     mintingStatus = true;
+    //     }else{
+    //     // mintingBool = false;
+    //     mintingStatus = false;
+    //     }
         
-    }
+    // }
 
     function pauseContract() public onlyOwner {
         _pause();
